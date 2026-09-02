@@ -101,12 +101,11 @@ export const ReviewPage: React.FC = () => {
                 <span>Reported Clinical History</span>
               </div>
               <div className="text-xs space-y-1 text-slate-700">
-                <p><strong>Chief Complaint: </strong> {history?.chiefComplaint || 'Chest pain since yesterday'}</p>
-                <p><strong>Onset & Duration: </strong> {history?.onsetAndDuration || 'Started yesterday afternoon (approx 24h)'}</p>
-                <p><strong>Location & Radiation: </strong> {history?.painLocation || 'Substernal radiating to left arm'}</p>
-                <p><strong>Pain Severity: </strong> <span className="font-bold text-red-600">{history?.severityScale || 8} / 10</span></p>
-                <p><strong>Associated Symptoms: </strong> {history?.associatedSymptoms || 'Breathlessness, diaphoresis (sweating)'}</p>
-                <p><strong>Past Medical History: </strong> {history?.pastMedicalHistory || 'Known Hypertension, Type 2 Diabetes'}</p>
+                <p><strong>Chief Complaint: </strong> {history?.chiefComplaint || 'Not captured'}</p>
+                <p><strong>Onset & Duration: </strong> {history?.onsetAndDuration || 'Not captured'}</p>
+                <p><strong>Pain Severity: </strong> <span className="font-bold text-red-600">{history?.severityScale != null ? `${history.severityScale} / 10` : 'Not captured'}</span></p>
+                <p><strong>Associated Symptoms: </strong> {history?.associatedSymptoms || 'None reported'}</p>
+                <p><strong>Past Medical History: </strong> {history?.pastMedicalHistory || 'None reported'}</p>
               </div>
             </div>
 

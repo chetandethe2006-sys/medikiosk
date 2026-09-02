@@ -31,7 +31,7 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleStartIntakeDemo = async () => {
-    navigate('/patient/language');
+    navigate('/patient/login');
   };
 
   return (

@@ -9,68 +9,175 @@ import java.util.*;
 @Service
 public class MockAIHistoryService implements AIHistoryService {
 
+    private static final int TOTAL_QUESTIONS = 5;
+
     @Override
     public HistoryStepResponseDto startInterview(HistoryStartRequestDto request, ClinicalHistory history) {
-        String complaint = request.getInitialComplaint() != null ? request.getInitialComplaint().trim() : "";
         String lang = request.getLanguage() != null ? request.getLanguage() : "en";
-        
-        if (complaint.isEmpty()) {
-            return HistoryStepResponseDto.builder()
-                .questionKey("CHIEF_COMPLAINT")
-                .questionText(getTranslatedText("What brings you to the hospital today?", lang))
-                .speechPrompt(getTranslatedText("What brings you to the hospital today?", lang))
-                .quickOptions(List.of("I have fever", "Chest pain", "Stomach pain", "Headache"))
-                .inputType("CHIP_SELECT")
-                .currentStepNumber(1)
-                .totalEstimatedSteps(Boolean.TRUE.equals(request.getAyushMode()) ? 9 : 6)
-                .completenessPercentage(10)
-                .isCompleted(false)
-                .build();
-        }
-
-        String category = detectCategory(complaint);
-        history.setComplaintCategory(category);
-        history.setChiefComplaint(complaint);
-
-        return getStepForCategory(category, 1, lang, Boolean.TRUE.equals(request.getAyushMode()), history);
+        // Always start with Question 1
+        return getQuestionStep(1, lang, history);
     }
 
     @Override
     public HistoryStepResponseDto processAnswer(HistoryAnswerRequestDto request, ClinicalHistory history, String language, Boolean ayushMode) {
         String key = request.getQuestionKey();
         String ans = request.getPatientAnswer();
-        String category = history.getComplaintCategory() != null ? history.getComplaintCategory() : "GENERAL";
-        int nextStep = (request.getStepOrder() != null ? request.getStepOrder() : 1) + 1;
+        String lang = language != null ? language : "en";
+        int currentStep = request.getStepOrder() != null ? request.getStepOrder() : 1;
+        int nextStep = currentStep + 1;
 
         // Apply answer to history entity fields
         applyAnswerToHistory(key, ans, history);
 
-        // Check if AYUSH mode adds steps
-        int totalSteps = Boolean.TRUE.equals(ayushMode) ? 9 : 6;
-
-        if (nextStep > totalSteps) {
-            // Completed
+        if (nextStep > TOTAL_QUESTIONS) {
+            // Completed after exactly 5 questions
             return HistoryStepResponseDto.builder()
                 .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
                 .questionKey("COMPLETED")
-                .questionText(getTranslatedText("All questions completed. Thank you! Let's proceed to document upload.", language))
-                .speechPrompt(getTranslatedText("History intake complete. Please upload your previous medical documents.", language))
+                .questionText(getTranslatedText("All questions completed. Thank you! Let's proceed to document upload.", lang))
+                .speechPrompt(getTranslatedSpeechPrompt("History intake complete. Please upload your previous medical documents.", lang))
                 .quickOptions(Collections.emptyList())
                 .inputType("NONE")
-                .currentStepNumber(totalSteps)
-                .totalEstimatedSteps(totalSteps)
+                .currentStepNumber(TOTAL_QUESTIONS)
+                .totalEstimatedSteps(TOTAL_QUESTIONS)
                 .completenessPercentage(100)
                 .isCompleted(true)
                 .redFlagDetected(history.getRedFlagTriggered())
                 .build();
         }
 
-        return getStepForCategory(category, nextStep, language, Boolean.TRUE.equals(ayushMode), history);
+        return getQuestionStep(nextStep, lang, history);
+    }
+
+    private HistoryStepResponseDto getQuestionStep(int step, String lang, ClinicalHistory history) {
+        int completeness = (step - 1) * 20; // 0, 20, 40, 60, 80
+        switch (step) {
+            case 1:
+                return HistoryStepResponseDto.builder()
+                    .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
+                    .questionKey("CHIEF_COMPLAINT")
+                    .questionText(getQuestion1Text(lang))
+                    .speechPrompt(getQuestion1Speech(lang))
+                    .quickOptions(getQuestion1Options(lang))
+                    .inputType("CHIP_SELECT")
+                    .currentStepNumber(1)
+                    .totalEstimatedSteps(TOTAL_QUESTIONS)
+                    .completenessPercentage(completeness)
+                    .isCompleted(false)
+                    .redFlagDetected(history.getRedFlagTriggered())
+                    .build();
+
+            case 2:
+                return HistoryStepResponseDto.builder()
+                    .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
+                    .questionKey("ONSET")
+                    .questionText(getQuestion2Text(lang))
+                    .speechPrompt(getQuestion2Speech(lang))
+                    .quickOptions(getQuestion2Options(lang))
+                    .inputType("CHIP_SELECT")
+                    .currentStepNumber(2)
+                    .totalEstimatedSteps(TOTAL_QUESTIONS)
+                    .completenessPercentage(completeness)
+                    .isCompleted(false)
+                    .redFlagDetected(history.getRedFlagTriggered())
+                    .build();
+
+            case 3:
+                return HistoryStepResponseDto.builder()
+                    .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
+                    .questionKey("SEVERITY")
+                    .questionText(getQuestion3Text(lang))
+                    .speechPrompt(getQuestion3Speech(lang))
+                    .quickOptions(getQuestion3Options(lang))
+                    .inputType("SCALE_0_10")
+                    .currentStepNumber(3)
+                    .totalEstimatedSteps(TOTAL_QUESTIONS)
+                    .completenessPercentage(completeness)
+                    .isCompleted(false)
+                    .redFlagDetected(history.getRedFlagTriggered())
+                    .build();
+
+            case 4:
+                return HistoryStepResponseDto.builder()
+                    .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
+                    .questionKey("ASSOCIATED_SYMPTOMS")
+                    .questionText(getQuestion4Text(lang))
+                    .speechPrompt(getQuestion4Speech(lang))
+                    .quickOptions(getQuestion4Options(lang))
+                    .inputType("CHIP_SELECT")
+                    .currentStepNumber(4)
+                    .totalEstimatedSteps(TOTAL_QUESTIONS)
+                    .completenessPercentage(completeness)
+                    .isCompleted(false)
+                    .redFlagDetected(history.getRedFlagTriggered())
+                    .build();
+
+            case 5:
+            default:
+                return HistoryStepResponseDto.builder()
+                    .sessionToken(history.getSession() != null ? history.getSession().getSessionToken() : "")
+                    .questionKey("PAST_HISTORY")
+                    .questionText(getQuestion5Text(lang))
+                    .speechPrompt(getQuestion5Speech(lang))
+                    .quickOptions(getQuestion5Options(lang))
+                    .inputType("CHIP_SELECT")
+                    .currentStepNumber(5)
+                    .totalEstimatedSteps(TOTAL_QUESTIONS)
+                    .completenessPercentage(completeness)
+                    .isCompleted(false)
+                    .redFlagDetected(history.getRedFlagTriggered())
+                    .build();
+        }
+    }
+
+    private void applyAnswerToHistory(String key, String ans, ClinicalHistory history) {
+        if (ans == null) return;
+
+        if ("CHIEF_COMPLAINT".equals(key)) {
+            history.setChiefComplaint(ans);
+            history.setComplaintCategory(detectCategory(ans));
+        } else if ("ONSET".equals(key)) {
+            history.setOnsetAndDuration(ans);
+        } else if ("SEVERITY".equals(key)) {
+            history.setSeverityScale(parseSeverity(ans));
+        } else if ("ASSOCIATED_SYMPTOMS".equals(key)) {
+            history.setAssociatedSymptoms(ans);
+        } else if ("PAST_HISTORY".equals(key)) {
+            history.setPastMedicalHistory(ans);
+            if (!ans.equalsIgnoreCase("No") && !ans.equalsIgnoreCase("None") && !ans.equalsIgnoreCase("नहीं") && !ans.equalsIgnoreCase("नाही")) {
+                history.setCurrentMedications(ans);
+            }
+        }
+    }
+
+    private int parseSeverity(String ans) {
+        if (ans == null || ans.trim().isEmpty()) return 5;
+        String trimmed = ans.trim();
+        if (trimmed.startsWith("0") || trimmed.contains("0–2") || trimmed.contains("0-2") || trimmed.toLowerCase().contains("mild") || trimmed.contains("हल्का") || trimmed.contains("सौम्य")) {
+            return 2;
+        } else if (trimmed.startsWith("3") || trimmed.contains("3–5") || trimmed.contains("3-5") || trimmed.toLowerCase().contains("moderate") || trimmed.contains("मध्यम")) {
+            return 4;
+        } else if (trimmed.startsWith("6") || trimmed.contains("6–8") || trimmed.contains("6-8") || trimmed.toLowerCase().contains("severe") && !trimmed.toLowerCase().contains("very") || trimmed.contains("गंभीर") || trimmed.contains("तीव्र")) {
+            return 7;
+        } else if (trimmed.startsWith("9") || trimmed.contains("9–10") || trimmed.contains("9-10") || trimmed.toLowerCase().contains("very severe") || trimmed.contains("बहुत गंभीर") || trimmed.contains("अति तीव्र")) {
+            return 9;
+        }
+        try {
+            String digits = trimmed.replaceAll("[^0-9]", "");
+            if (!digits.isEmpty()) {
+                int val = Integer.parseInt(digits);
+                if (val > 10 && val <= 100) val = val / 10;
+                return Math.min(10, Math.max(0, val));
+            }
+        } catch (Exception ignored) {
+        }
+        return 5;
     }
 
     private String detectCategory(String complaint) {
+        if (complaint == null) return "GENERAL";
         String lower = complaint.toLowerCase();
-        if (lower.contains("chest") || lower.contains("heart") || lower.contains("छाती") || lower.contains("छातीत")) {
+        if (lower.contains("chest") || lower.contains("heart") || lower.contains("छाती") || lower.contains("छातीत") || lower.contains("हृदय")) {
             return "CHEST_PAIN";
         } else if (lower.contains("fever") || lower.contains("temperature") || lower.contains("बुखार") || lower.contains("ताप")) {
             return "FEVER";
@@ -78,380 +185,120 @@ public class MockAIHistoryService implements AIHistoryService {
             return "ABDOMINAL_PAIN";
         } else if (lower.contains("head") || lower.contains("सिर") || lower.contains("डोके")) {
             return "HEADACHE";
-        } else if (lower.contains("cough") || lower.contains("cold") || lower.contains("खांसी") || lower.contains("खोकला")) {
+        } else if (lower.contains("cough") || lower.contains("cold") || lower.contains("खांसी") || lower.contains("खोकला") || lower.contains("सर्दी")) {
             return "COUGH";
         } else if (lower.contains("sugar") || lower.contains("diabetes") || lower.contains("मधुमेह")) {
             return "DIABETES";
+        } else if (lower.contains("pain") || lower.contains("दर्द") || lower.contains("दुखणे")) {
+            return "PAIN";
         }
         return "GENERAL";
     }
 
-    private void applyAnswerToHistory(String key, String ans, ClinicalHistory history) {
-        if ("ONSET".equals(key)) {
-            history.setOnsetAndDuration(ans);
-        } else if ("LOCATION".equals(key)) {
-            history.setPainLocation(ans);
-        } else if ("CHARACTER".equals(key)) {
-            history.setCharacter(ans);
-        } else if ("SEVERITY".equals(key)) {
-            try {
-                history.setSeverityScale(Integer.parseInt(ans.replaceAll("[^0-9]", "")));
-            } catch (Exception ignored) {
-                history.setSeverityScale(6);
-            }
-        } else if ("ASSOCIATED_SYMPTOMS".equals(key)) {
-            history.setAssociatedSymptoms(ans);
-        } else if ("AGGRAVATING_RELIEVING".equals(key)) {
-            history.setAggravatingFactors(ans);
-        } else if ("PAST_HISTORY".equals(key)) {
-            history.setPastMedicalHistory(ans);
-        } else if ("CURRENT_MEDICATIONS".equals(key)) {
-            history.setCurrentMedications(ans);
-        } else if ("AYUSH_PRAKRITI".equals(key)) {
-            history.setPrakriti(ans);
-            history.setAyushAssessed(true);
-        } else if ("AYUSH_AHARA_VIHARA".equals(key)) {
-            history.setAharaVihara(ans);
-        } else if ("AYUSH_AGNI".equals(key)) {
-            history.setAgni(ans);
+    // Question 1
+    private String getQuestion1Text(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) return "आपकी मुख्य समस्या या तकलीफ क्या है?";
+        if ("mr".equalsIgnoreCase(lang)) return "तुमची मुख्य समस्या किंवा तक्रार काय आहे?";
+        return "What is your main problem or complaint?";
+    }
+    private String getQuestion1Speech(String lang) {
+        return getQuestion1Text(lang);
+    }
+    private List<String> getQuestion1Options(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            return List.of("दर्द", "बुखार", "खांसी / जुकाम", "पेट की समस्या", "अन्य");
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            return List.of("वेदना / दुखणे", "ताप", "खोकला / सर्दी", "पोटाचा त्रास", "इतर");
         }
+        return List.of("Pain", "Fever", "Cough / Cold", "Stomach problem", "Other");
     }
 
-    private HistoryStepResponseDto getStepForCategory(String category, int step, String lang, boolean ayush, ClinicalHistory history) {
-        int total = ayush ? 9 : 6;
-        int pct = Math.min(95, (int) Math.round(((double) step / total) * 100));
-
-        if (ayush && step == 7) {
-            return HistoryStepResponseDto.builder()
-                .questionKey("AYUSH_PRAKRITI")
-                .questionText(getTranslatedText("AYUSH Mode: How is your body constitution / tolerance to weather?", lang))
-                .speechPrompt(getTranslatedText("How is your body constitution or climate tolerance?", lang))
-                .quickOptions(List.of("Vata (Prefers Warmth, Dry Skin)", "Pitta (Sensitive to Heat, Sweating)", "Kapha (Calm, Heavy Build)", "Mixed Prakriti"))
-                .inputType("CHIP_SELECT")
-                .currentStepNumber(step)
-                .totalEstimatedSteps(total)
-                .completenessPercentage(pct)
-                .isCompleted(false)
-                .build();
-        } else if (ayush && step == 8) {
-            return HistoryStepResponseDto.builder()
-                .questionKey("AYUSH_AGNI")
-                .questionText(getTranslatedText("AYUSH Mode: How is your digestive power (Agni) and appetite?", lang))
-                .speechPrompt(getTranslatedText("How is your appetite and digestion?", lang))
-                .quickOptions(List.of("Sama (Normal & Regular)", "Vishama (Irregular)", "Tikshna (Very Intense / Hyperacidity)", "Manda (Slow / Sluggish)"))
-                .inputType("CHIP_SELECT")
-                .currentStepNumber(step)
-                .totalEstimatedSteps(total)
-                .completenessPercentage(pct)
-                .isCompleted(false)
-                .build();
-        } else if (ayush && step == 9) {
-            return HistoryStepResponseDto.builder()
-                .questionKey("AYUSH_AHARA_VIHARA")
-                .questionText(getTranslatedText("AYUSH Mode: What is your primary diet and sleep routine?", lang))
-                .speechPrompt(getTranslatedText("Please describe your daily food and sleep routine.", lang))
-                .quickOptions(List.of("Vegetarian, Regular 7h sleep", "Mixed diet, Late night dinner", "Spicy food, Irregular sleep", "Light food, Good sleep"))
-                .inputType("CHIP_SELECT")
-                .currentStepNumber(step)
-                .totalEstimatedSteps(total)
-                .completenessPercentage(pct)
-                .isCompleted(false)
-                .build();
+    // Question 2
+    private String getQuestion2Text(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) return "यह समस्या कब शुरू हुई थी?";
+        if ("mr".equalsIgnoreCase(lang)) return "हा त्रास कधी सुरू झाला?";
+        return "When did this problem start?";
+    }
+    private String getQuestion2Speech(String lang) {
+        return getQuestion2Text(lang);
+    }
+    private List<String> getQuestion2Options(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            return List.of("आज", "कल", "२–३ दिन पहले", "एक सप्ताह से अधिक", "एक महीने से अधिक");
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            return List.of("आज", "काल", "२–३ दिवसांपूर्वी", "एका आठवड्यापेक्षा जास्त", "एका महिन्यापेक्षा जास्त");
         }
-
-        // Standard Steps based on Category
-        switch (category) {
-            case "CHEST_PAIN":
-                return getChestPainStep(step, lang, total, pct);
-            case "FEVER":
-                return getFeverStep(step, lang, total, pct);
-            case "ABDOMINAL_PAIN":
-                return getAbdominalPainStep(step, lang, total, pct);
-            case "HEADACHE":
-                return getHeadacheStep(step, lang, total, pct);
-            case "COUGH":
-                return getCoughStep(step, lang, total, pct);
-            case "DIABETES":
-                return getDiabetesStep(step, lang, total, pct);
-            default:
-                return getGeneralStep(step, lang, total, pct);
-        }
+        return List.of("Today", "Yesterday", "2–3 days ago", "More than a week ago", "More than a month ago");
     }
 
-    private HistoryStepResponseDto getChestPainStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ONSET")
-                    .questionText(getTranslatedText("When did this chest pain start, and did it come on suddenly or gradually?", lang))
-                    .speechPrompt(getTranslatedText("When did your chest pain start?", lang))
-                    .quickOptions(List.of("Started yesterday", "Started today morning", "Started 2 days ago", "Continuous for 1 week"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 2:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("LOCATION")
-                    .questionText(getTranslatedText("Where exactly do you feel the pain, and does it spread anywhere?", lang))
-                    .speechPrompt(getTranslatedText("Where is the pain located, and does it spread?", lang))
-                    .quickOptions(List.of("Center of chest (Substernal)", "Left side radiating to left arm", "Spreading to neck and jaw", "Right side of chest"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(2)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 3:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("CHARACTER")
-                    .questionText(getTranslatedText("What does the pain feel like?", lang))
-                    .speechPrompt(getTranslatedText("What is the nature of the pain?", lang))
-                    .quickOptions(List.of("Heavy pressure / crushing sensation", "Sharp / stabbing sensation", "Burning sensation", "Dull ache"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(3)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 4:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("SEVERITY")
-                    .questionText(getTranslatedText("How severe is the pain on a scale of 0 to 10? (0 = no pain, 10 = worst imaginable)", lang))
-                    .speechPrompt(getTranslatedText("Please rate your pain severity from zero to ten.", lang))
-                    .quickOptions(List.of("3 / 10 (Mild)", "5 / 10 (Moderate)", "7 / 10 (Severe)", "9 / 10 (Very Severe)"))
-                    .inputType("SCALE_0_10")
-                    .currentStepNumber(4)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 5:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ASSOCIATED_SYMPTOMS")
-                    .questionText(getTranslatedText("Are you experiencing any of these other symptoms right now?", lang))
-                    .speechPrompt(getTranslatedText("Do you have breathlessness, sweating, or dizziness?", lang))
-                    .quickOptions(List.of("Breathlessness & Sweating (Diaphoresis)", "Nausea & Dizziness", "Palpitations (Fast heartbeat)", "No other symptoms"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(5)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 6:
-            default:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("PAST_HISTORY")
-                    .questionText(getTranslatedText("Do you have any existing medical conditions or current medications?", lang))
-                    .speechPrompt(getTranslatedText("Do you have blood pressure, diabetes, or previous heart issues?", lang))
-                    .quickOptions(List.of("Hypertension (High BP) on medication", "Diabetes & High BP", "Previous heart condition / Stent", "None / First time"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(6)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
+    // Question 3
+    private String getQuestion3Text(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) return "0 से 10 के पैमाने पर आपकी समस्या कितनी गंभीर है?";
+        if ("mr".equalsIgnoreCase(lang)) return "० ते १० च्या प्रमाणात तुमचा त्रास किती तीव्र आहे?";
+        return "How severe is your problem on a scale of 0 to 10?";
+    }
+    private String getQuestion3Speech(String lang) {
+        return getQuestion3Text(lang);
+    }
+    private List<String> getQuestion3Options(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            return List.of("0–2 हल्का", "3–5 मध्यम", "6–8 गंभीर", "9–10 बहुत गंभीर");
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            return List.of("०–२ सौम्य", "३–५ मध्यम", "६–८ तीव्र", "९–१० अति तीव्र");
         }
+        return List.of("0–2 Mild", "3–5 Moderate", "6–8 Severe", "9–10 Very severe");
     }
 
-    private HistoryStepResponseDto getFeverStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ONSET")
-                    .questionText(getTranslatedText("How many days have you had fever, and is it continuous or intermittent?", lang))
-                    .speechPrompt(getTranslatedText("How many days have you had fever?", lang))
-                    .quickOptions(List.of("2 days (Continuous)", "3-4 days (Comes with chills)", "1 week on and off", "Started today"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 2:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ASSOCIATED_SYMPTOMS")
-                    .questionText(getTranslatedText("Do you have chills, body aches, rash, or vomiting?", lang))
-                    .speechPrompt(getTranslatedText("Any chills, severe body ache, or vomiting?", lang))
-                    .quickOptions(List.of("Severe body ache & eye pain", "Chills & shivering", "Cough & sore throat", "Vomiting & loose motions"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(2)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 3:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("SEVERITY")
-                    .questionText(getTranslatedText("Have you measured your body temperature?", lang))
-                    .speechPrompt(getTranslatedText("What was your highest recorded temperature?", lang))
-                    .quickOptions(List.of("High fever (102°F - 104°F)", "Moderate fever (100°F - 101°F)", "Low grade (99°F)", "Not measured"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(3)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            default:
-                return getGeneralStep(step, lang, total, pct);
+    // Question 4
+    private String getQuestion4Text(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) return "क्या आपको कोई अन्य लक्षण महसूस हो रहे हैं?";
+        if ("mr".equalsIgnoreCase(lang)) return "तुम्हाला इतर काही लक्षणे जाणवत आहेत का?";
+        return "Do you have any other symptoms?";
+    }
+    private String getQuestion4Speech(String lang) {
+        return getQuestion4Text(lang);
+    }
+    private List<String> getQuestion4Options(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            return List.of("कोई नहीं", "कमजोरी / थकान", "मतली / उल्टी", "चक्कर आना", "सांस लेने में कठिनाई");
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            return List.of("काहीही नाही", "अशक्तपणा / थकवा", "मळमळ / उलटी", "चक्कर येणे", "श्वास घेण्यास त्रास");
         }
+        return List.of("None", "Weakness / Tiredness", "Nausea / Vomiting", "Dizziness", "Breathing difficulty");
     }
 
-    private HistoryStepResponseDto getAbdominalPainStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("LOCATION")
-                    .questionText(getTranslatedText("Where in your stomach or abdomen is the pain located?", lang))
-                    .speechPrompt(getTranslatedText("Where is your stomach pain located?", lang))
-                    .quickOptions(List.of("Upper abdomen / Epigastric", "Right lower abdomen", "All over the belly", "Lower abdomen / Pelvic"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 2:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ASSOCIATED_SYMPTOMS")
-                    .questionText(getTranslatedText("Any vomiting, fever, loose stools, or blood in stool?", lang))
-                    .speechPrompt(getTranslatedText("Do you have vomiting or fever?", lang))
-                    .quickOptions(List.of("Vomiting & cannot keep food down", "Loose motions (Diarrhea)", "Bloating & acidity", "Fever & severe pain"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(2)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            default:
-                return getGeneralStep(step, lang, total, pct);
-        }
+    // Question 5
+    private String getQuestion5Text(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) return "क्या आपको पहले से कोई बीमारी है या कोई नियमित दवा लेते हैं?";
+        if ("mr".equalsIgnoreCase(lang)) return "तुम्हाला आधीपासून काही आजार आहे का किंवा नियमित औषधे घेता का?";
+        return "Do you have any existing medical conditions or take regular medicines?";
     }
-
-    private HistoryStepResponseDto getHeadacheStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ONSET")
-                    .questionText(getTranslatedText("Did this headache start suddenly like a thunderclap or build gradually?", lang))
-                    .speechPrompt(getTranslatedText("Did the headache start suddenly or gradually?", lang))
-                    .quickOptions(List.of("Sudden, extremely severe (Thunderclap)", "Gradual throbbing on one side", "Dull tightness across forehead", "Started after screen use"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            default:
-                return getGeneralStep(step, lang, total, pct);
-        }
+    private String getQuestion5Speech(String lang) {
+        return getQuestion5Text(lang);
     }
-
-    private HistoryStepResponseDto getCoughStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("CHARACTER")
-                    .questionText(getTranslatedText("Is your cough dry or with phlegm/sputum? Any blood?", lang))
-                    .speechPrompt(getTranslatedText("Is the cough dry or productive?", lang))
-                    .quickOptions(List.of("Dry cough with throat irritation", "Productive with yellowish phlegm", "Coughing up traces of blood", "Coughing mostly at night"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            default:
-                return getGeneralStep(step, lang, total, pct);
+    private List<String> getQuestion5Options(String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            return List.of("नहीं", "मधुमेह (डायबिटीज)", "उच्च रक्तचाप (हाई बीपी)", "हृदय रोग", "अन्य");
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            return List.of("नाही", "मधुमेह (डायबिटीज)", "उच्च रक्तदाब (हाय बीपी)", "हृदयविकार", "इतर");
         }
-    }
-
-    private HistoryStepResponseDto getDiabetesStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("PAST_HISTORY")
-                    .questionText(getTranslatedText("How long have you had diabetes, and what medications are you taking?", lang))
-                    .speechPrompt(getTranslatedText("How long have you been diabetic and what are your medications?", lang))
-                    .quickOptions(List.of("Type 2 Diabetes (5+ years) on oral tablets", "Recent diagnosis (under 1 year)", "On Insulin injections", "Irregular medication"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            default:
-                return getGeneralStep(step, lang, total, pct);
-        }
-    }
-
-    private HistoryStepResponseDto getGeneralStep(int step, String lang, int total, int pct) {
-        switch (step) {
-            case 1:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("ONSET")
-                    .questionText(getTranslatedText("When did your symptoms start?", lang))
-                    .speechPrompt(getTranslatedText("When did your symptoms begin?", lang))
-                    .quickOptions(List.of("Today", "2-3 days ago", "1-2 weeks ago", "More than 1 month"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(1)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 2:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("SEVERITY")
-                    .questionText(getTranslatedText("How severe is this problem affecting your daily activities?", lang))
-                    .speechPrompt(getTranslatedText("How severe is your condition?", lang))
-                    .quickOptions(List.of("Mild - Can do daily work", "Moderate - Difficulty working", "Severe - Bedridden / Urgent"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(2)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-            case 3:
-            default:
-                return HistoryStepResponseDto.builder()
-                    .questionKey("PAST_HISTORY")
-                    .questionText(getTranslatedText("Do you have any existing medical conditions or current medications?", lang))
-                    .speechPrompt(getTranslatedText("Do you take any regular medicines?", lang))
-                    .quickOptions(List.of("High Blood Pressure", "Diabetes", "Thyroid disorder", "None / Healthy"))
-                    .inputType("CHIP_SELECT")
-                    .currentStepNumber(step)
-                    .totalEstimatedSteps(total)
-                    .completenessPercentage(pct)
-                    .isCompleted(false)
-                    .build();
-        }
+        return List.of("No", "Diabetes", "High Blood Pressure", "Heart condition", "Other");
     }
 
     private String getTranslatedText(String english, String lang) {
         if ("hi".equalsIgnoreCase(lang)) {
-            if (english.contains("chest pain start")) return "यह छाती का दर्द कब शुरू हुआ, और क्या यह अचानक हुआ या धीरे-धीरे?";
-            if (english.contains("Where exactly")) return "दर्द ठीक किस जगह महसूस हो रहा है, और क्या यह कहीं और फैल रहा है?";
-            if (english.contains("What does the pain feel like")) return "दर्द किस प्रकार का महसूस होता है?";
-            if (english.contains("scale of 0 to 10")) return "0 से 10 के पैमाने पर दर्द की तीव्रता कितनी है?";
-            if (english.contains("other symptoms right now")) return "क्या आपको इस समय सांस फूलना, पसीना आना या चक्कर महसूस हो रहा है?";
-            if (english.contains("existing medical conditions")) return "क्या आपको पहले से कोई बीमारी (बीपी, शुगर) है या कोई दवा चल रही है?";
-            if (english.contains("AYUSH Mode: How is your body")) return "आयुष मोड: आपकी शारीरिक प्रकृति और मौसम सहनशीलता कैसी है?";
-            if (english.contains("digestive power")) return "आयुष मोड: आपकी पाचन शक्ति (अग्नि) और भूख कैसी है?";
-            if (english.contains("diet and sleep")) return "आयुष मोड: आपका दैनिक आहार और नींद की दिनचर्या कैसी है?";
             if (english.contains("All questions completed")) return "सभी प्रश्न पूरे हो गए हैं। धन्यवाद! आइए पिछले दस्तावेज़ अपलोड करें।";
         } else if ("mr".equalsIgnoreCase(lang)) {
-            if (english.contains("chest pain start")) return "हा छातीतला त्रास कधी सुरू झाला आणि तो अचानक सुरू झाला की हळूहळू?";
-            if (english.contains("Where exactly")) return "वेदना नक्की कुठे होत आहे आणि ती डाव्या हाताकडे किंवा जबड्याकडे पसरते का?";
-            if (english.contains("What does the pain feel like")) return "वेदना कशा प्रकारची जाणवते? (दाब, जडपणा किंवा टोचल्यासारखी)";
-            if (english.contains("scale of 0 to 10")) return "० ते १० च्या प्रमाणात वेदनेची तीव्रता किती आहे?";
-            if (english.contains("other symptoms right now")) return "सध्या धाप लागणे, खूप घाम येणे किंवा चक्कर येणे असे काही जाणवत आहे का?";
-            if (english.contains("existing medical conditions")) return "तुम्हाला रक्तदाब, मधुमेह किंवा इतर कोणताही जुना आजार आहे का?";
-            if (english.contains("AYUSH Mode: How is your body")) return "आयुष मोड: तुमची शारीरिक प्रकृती आणि हवामान सहनशीलता कशी आहे?";
-            if (english.contains("digestive power")) return "आयुष मोड: तुमची पचनशक्ती (अग्नि) आणि भूक कशी आहे?";
-            if (english.contains("diet and sleep")) return "आयुष मोड: तुमचा रोजचा आहार आणि झोपेची दिनचर्या कशी आहे?";
             if (english.contains("All questions completed")) return "सर्व प्रश्न पूर्ण झाले आहेत. धन्यवाद! आता जुने वैद्यकीय कागदपत्रे जोडूया.";
+        }
+        return english;
+    }
+
+    private String getTranslatedSpeechPrompt(String english, String lang) {
+        if ("hi".equalsIgnoreCase(lang)) {
+            if (english.contains("History intake complete")) return "स्वास्थ्य इतिहास पूरा हो गया है। कृपया अपने पिछले चिकित्सा दस्तावेज अपलोड करें।";
+        } else if ("mr".equalsIgnoreCase(lang)) {
+            if (english.contains("History intake complete")) return "आरोग्य इतिहास पूर्ण झाला आहे. कृपया तुमची मागील वैद्यकीय कागदपत्रे अपलोड करा.";
         }
         return english;
     }

@@ -38,7 +38,7 @@ public class ClinicalHistoryService {
             .orElseGet(() -> ClinicalHistory.builder()
                 .patient(patient)
                 .session(session)
-                .chiefComplaint(request.getInitialComplaint())
+                .chiefComplaint(request.getInitialComplaint() != null && !request.getInitialComplaint().trim().isEmpty() ? request.getInitialComplaint().trim() : "Pending intake")
                 .recordedAt(LocalDateTime.now())
                 .build());
 
@@ -114,6 +114,7 @@ public class ClinicalHistoryService {
         return response;
     }
 
+    @Transactional(readOnly = true)
     public ClinicalHistoryDto getHistoryBySessionToken(String sessionToken) {
         PatientSession session = sessionRepository.findBySessionToken(sessionToken)
             .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionToken));
@@ -124,6 +125,7 @@ public class ClinicalHistoryService {
         return mapToDto(history);
     }
 
+    @Transactional(readOnly = true)
     public ClinicalHistoryDto getHistoryByPatientId(Long patientId) {
         List<ClinicalHistory> list = historyRepository.findByPatientIdOrderByRecordedAtDesc(patientId);
         if (list.isEmpty()) {

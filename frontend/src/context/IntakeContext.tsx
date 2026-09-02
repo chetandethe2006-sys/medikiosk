@@ -233,19 +233,19 @@ export const IntakeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Local fallback step
       setCurrentStepData({
         sessionToken: session.sessionToken,
-        questionKey: 'ONSET',
-        questionText: 'When did this chest pain start, and did it come on suddenly or gradually?',
-        speechPrompt: 'When did your chest pain start?',
-        quickOptions: ['Started yesterday', 'Started today morning', 'Started 2 days ago', 'Continuous for 1 week'],
+        questionKey: 'CHIEF_COMPLAINT',
+        questionText: 'What is your main problem or complaint?',
+        speechPrompt: 'What is your main problem or complaint?',
+        quickOptions: ['Pain', 'Fever', 'Cough / Cold', 'Stomach problem', 'Other'],
         inputType: 'CHIP_SELECT',
         currentStepNumber: 1,
-        totalEstimatedSteps: isAyushMode ? 9 : 6,
-        completenessPercentage: 25,
+        totalEstimatedSteps: 5,
+        completenessPercentage: 20,
         isCompleted: false,
       });
       setHistory({
         chiefComplaint: initialComplaint,
-        complaintCategory: 'CHEST_PAIN',
+        complaintCategory: 'GENERAL',
         recordedAt: new Date().toISOString(),
       });
     } finally {
@@ -273,27 +273,68 @@ export const IntakeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setActiveRedFlag(response.redFlagAlert);
       }
     } catch (e) {
-      // Local progression fallback
+      // Local progression fallback for 5 questions
       const nextStep = currentStepData.currentStepNumber + 1;
-      const isComplete = nextStep > (isAyushMode ? 9 : 6);
+      const isComplete = nextStep > 5;
+      const fallbackQuestions: Record<number, { key: string; text: string; options: string[] }> = {
+        1: {
+          key: 'CHIEF_COMPLAINT',
+          text: 'What is your main problem or complaint?',
+          options: ['Pain', 'Fever', 'Cough / Cold', 'Stomach problem', 'Other'],
+        },
+        2: {
+          key: 'ONSET',
+          text: 'When did this problem start?',
+          options: ['Today', 'Yesterday', '2–3 days ago', 'More than a week ago', 'More than a month ago'],
+        },
+        3: {
+          key: 'SEVERITY',
+          text: 'How severe is your problem on a scale of 0 to 10?',
+          options: ['0–2 Mild', '3–5 Moderate', '6–8 Severe', '9–10 Very severe'],
+        },
+        4: {
+          key: 'ASSOCIATED_SYMPTOMS',
+          text: 'Do you have any other symptoms?',
+          options: ['None', 'Weakness / Tiredness', 'Nausea / Vomiting', 'Dizziness', 'Breathing difficulty'],
+        },
+        5: {
+          key: 'PAST_HISTORY',
+          text: 'Do you have any existing medical conditions or take regular medicines?',
+          options: ['No', 'Diabetes', 'High Blood Pressure', 'Heart condition', 'Other'],
+        },
+      };
+
+      const q = fallbackQuestions[nextStep];
+      
+      // Update fallback history locally for all questions
+      setHistory(prev => {
+        if (!prev) return null;
+        const key = currentStepData.questionKey;
+        if (key === 'CHIEF_COMPLAINT') return { ...prev, chiefComplaint: answer };
+        if (key === 'ONSET') return { ...prev, onsetAndDuration: answer };
+        if (key === 'SEVERITY') {
+          // parse severity number
+          const match = answer.match(/\d+/);
+          return { ...prev, severityScale: match ? parseInt(match[0], 10) : 5 };
+        }
+        if (key === 'ASSOCIATED_SYMPTOMS') return { ...prev, associatedSymptoms: answer };
+        if (key === 'PAST_HISTORY') return { ...prev, pastMedicalHistory: answer };
+        return prev;
+      });
+
       setCurrentStepData((prev) =>
         prev
           ? {
               ...prev,
-              currentStepNumber: nextStep,
-              completenessPercentage: Math.min(100, nextStep * 15),
+              currentStepNumber: Math.min(5, nextStep),
+              totalEstimatedSteps: 5,
+              completenessPercentage: isComplete ? 100 : (nextStep - 1) * 20,
               isCompleted: isComplete,
-              questionKey: nextStep === 2 ? 'LOCATION' : nextStep === 3 ? 'SEVERITY' : 'COMPLETED',
-              questionText:
-                nextStep === 2
-                  ? 'Where exactly do you feel the pain, and does it spread anywhere?'
-                  : nextStep === 3
-                  ? 'How severe is the pain on a scale of 0 to 10?'
-                  : 'History intake complete. Please upload previous medical records.',
-              quickOptions:
-                nextStep === 2
-                  ? ['Center of chest (Substernal)', 'Left side radiating to left arm', 'Spreading to neck and jaw']
-                  : ['5 / 10 (Moderate)', '8 / 10 (Severe)'],
+              questionKey: isComplete ? 'COMPLETED' : q?.key || 'COMPLETED',
+              questionText: isComplete
+                ? 'All questions completed. Thank you! Let\'s proceed to document upload.'
+                : q?.text || '',
+              quickOptions: isComplete ? [] : q?.options || [],
             }
           : null
       );

@@ -53,27 +53,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    if (language === 'hi') {
-      utterance.lang = 'hi-IN';
-    } else if (language === 'mr') {
-      utterance.lang = 'mr-IN';
-    } else {
-      utterance.lang = 'en-IN';
-    }
-
-    utterance.rate = 0.95; // Slightly slower for elderly / clarity
-    utterance.pitch = 1.0;
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
+    // Text-to-speech is completely disabled as requested.
+    return;
   };
 
   const stopSpeaking = () => {

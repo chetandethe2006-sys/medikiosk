@@ -32,9 +32,9 @@ public class RedFlagService {
         String onset = (history.getOnsetAndDuration() != null ? history.getOnsetAndDuration() : "").toLowerCase();
         Integer severity = history.getSeverityScale();
 
-        // Rule 1: Chest pain + breathlessness or sweating
-        if ((complaint.contains("chest") || complaint.contains("छाती")) &&
-            (associated.contains("breathless") || associated.contains("sweat") || associated.contains("diaphoresis") || associated.contains("घाम") || associated.contains("धाप"))) {
+        // Rule 1: Chest/heart complaint + breathing difficulty or sweating
+        if ((complaint.contains("chest") || complaint.contains("heart") || complaint.contains("छाती") || complaint.contains("हृदय")) &&
+            (associated.contains("breath") || associated.contains("sweat") || associated.contains("diaphoresis") || associated.contains("घाम") || associated.contains("धाप") || associated.contains("सांस") || associated.contains("श्वास"))) {
 
             RedFlagEvent flag = RedFlagEvent.builder()
                 .patient(history.getPatient())

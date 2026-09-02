@@ -48,12 +48,7 @@ export const ClinicalHistoryPage: React.FC = () => {
   useEffect(() => {
     if (!initialized && session && patient) {
       setInitialized(true);
-      const initialComplaint =
-        language === 'hi'
-          ? 'सीने में दर्द'
-          : language === 'mr'
-          ? 'छातीत दुखणे'
-          : 'Chest pain since yesterday';
+      const initialComplaint = '';
 
       // Initial AI greeting message
       const greeting =
@@ -344,7 +339,7 @@ export const ClinicalHistoryPage: React.FC = () => {
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('history.chief_complaint')}</span>
               <p className="text-xs font-bold text-slate-800 mt-0.5">
-                {history?.chiefComplaint || 'Chest pain since yesterday'}
+                {history?.chiefComplaint || 'Pending...'}
               </p>
             </div>
 
